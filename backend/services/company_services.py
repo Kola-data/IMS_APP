@@ -1,5 +1,3 @@
-from db.db_conn import AsyncSessionLocal
-from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from models.company_model import CompanyModel
@@ -7,14 +5,13 @@ from schemas.company_schema import (
     CompanyRegisterSchema, 
     CompanyListResponseSchema, 
     CompanyUpdateSchema,
-    CompanyResponseSchema
 )
 import uuid
-from pydantic import BaseModel
+
 
 class CompanyServices:
     @staticmethod
-    async def create_company(db: AsyncSession, company_data: CompanyRegisterSchema) -> CompanyResponseSchema:
+    async def create_company(db: AsyncSession, company_data: CompanyRegisterSchema) -> CompanyModel:
         new_company = CompanyModel(
             name = company_data.name,
             owner_name = company_data.owner_name,
@@ -29,25 +26,22 @@ class CompanyServices:
         return new_company
     
     @staticmethod
-    async def get_companies(db: AsyncSession) -> CompanyListResponseSchema:
-        results = await db.execute(select(CompanyModel))
-        list_companies = results.scalars().all()
-        if not list_companies:
-            return {"message": "No companies found"}
-        return {"companies": list_companies, "message": "Companies retrieved successfully"}
+    async def get_companies(db: AsyncSession) -> list[CompanyModel]:
+        results = await db.execute(select(CompanyModel).where(CompanyModel.is_deleted == False)) 
+       
+        return results.scalars().all()
     
     @staticmethod
-    async def get_company_by_id(db: AsyncSession, company_id: uuid.UUID) -> CompanyResponseSchema:
-        single_company = await db.get(CompanyModel, company_id)
-        if not single_company:
-            return {"message": "Company not found"}
-        return single_company
+    async def get_company_by_id(db: AsyncSession, company_id: uuid.UUID) -> CompanyModel | None:
+        single_company = await db.execute(select(CompanyModel).where(CompanyModel.id == company_id, CompanyModel.is_deleted == False))
+    
+        return single_company.scalars().first()
     
     @staticmethod
-    async def update_company(db: AsyncSession, company_id: uuid.UUID, update_data: CompanyUpdateSchema) -> CompanyResponseSchema:
+    async def update_company(db: AsyncSession, company_id: uuid.UUID, update_data: CompanyUpdateSchema) -> CompanyModel | None:
         company = await db.get(CompanyModel, company_id)
-        if not company:
-            return {"message": "Company not found"}
+        if not company or company.is_deleted:
+            return None
 
         for key, value in update_data.model_dump(exclude_unset=True).items():
             setattr(company, key, value)
@@ -59,10 +53,31 @@ class CompanyServices:
     
 
     @staticmethod
-    async def delete_company(db: AsyncSession, company_id: uuid.UUID) -> dict:
+    async def delete_company(db: AsyncSession, company_id: uuid.UUID) -> bool:
         company = await db.get(CompanyModel, company_id)
-        if not company:
-            return {"message": "Company not found"}
-        await db.delete(company)
+        
+        if not company or company.is_deleted:
+            return None
+        
+        company.is_deleted = True
         await db.commit()
-        return {"message": "Company deleted successfully"}
+        return True
+    
+
+    @staticmethod
+    async def deactivate_company(db: AsyncSession, company_id: uuid.UUID) -> bool:
+        company = await db.get(CompanyModel, company_id)
+        if not company or company.is_deleted:
+            return None
+        company.is_active = False
+        await db.commit()
+        return True
+    
+    @staticmethod
+    async def activate_company(db: AsyncSession, company_id: uuid.UUID) -> bool:
+        company = await db.get(CompanyModel, company_id)
+        if not company or company.is_deleted:
+            return None
+        company.is_active = True
+        await db.commit()
+        return True

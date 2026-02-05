@@ -6,7 +6,8 @@ from sqlalchemy import pool
 from alembic import context
 
 from db.db_conn import Base  # Import the Base you just created
-from backend.models.company_model import CompanyRegistration  # Import your models to ensure they are registered
+from models.company_model import CompanyModel  # Import your models to ensure they are registered
+from models.branch_model import BranchModel
 target_metadata = Base.metadata
 
 

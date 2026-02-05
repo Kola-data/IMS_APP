@@ -10,6 +10,7 @@ class CompanyRegisterSchema(BaseModel):
     email: EmailStr
     address: str
     
+    
     model_config = ConfigDict(from_attributes=True)
 
 class CompanyUpdateSchema(BaseModel):
@@ -32,6 +33,13 @@ class CompanyResponseSchema(BaseModel):
     updated_at: datetime
     
     model_config = ConfigDict(from_attributes=True)
+
+# 2. Create a specific Response Schema for the POST endpoint
+class CompanyCreateResponse(BaseModel):
+    message: str
+    company: CompanyResponseSchema  # This matches your return {"company": result}
+
+
 
 class CompanyListResponseSchema(BaseModel):
     companies: list[CompanyResponseSchema]
